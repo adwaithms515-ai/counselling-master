@@ -1,0 +1,951 @@
+{% extends 'accounts/base.html' %}
+
+{% block title %}Therapist Dashboard | MindWell{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 2rem;
+        width: 100%;
+        max-width: 1200px;
+        margin-top: 1rem;
+    }
+
+    @media (max-width: 900px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .widget {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 2rem;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        height: fit-content;
+    }
+
+    .widget-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .session-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-height: 550px;
+        overflow-y: auto;
+    }
+
+    .session-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--card-border);
+        padding: 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .session-card:hover {
+        border-color: var(--accent);
+        background: rgba(255, 255, 255, 0.05);
+        transform: translateY(-2px);
+    }
+
+    .session-card.active {
+        border-color: var(--primary);
+        background: rgba(124, 58, 237, 0.08);
+        box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
+    }
+
+    .badge {
+        padding: 0.2rem 0.6rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-primary { background: rgba(124, 58, 237, 0.2); color: #c084fc; }
+    .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .badge-info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+    .btn-action {
+        background: var(--accent);
+        border: none;
+        color: #0a0518;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 0.85rem;
+    }
+
+    .btn-action:hover {
+        background: white;
+        box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 1px solid var(--card-border);
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 0.85rem;
+    }
+
+    .btn-outline:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: var(--accent);
+    }
+
+    .loading-spinner {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 2rem;
+    }
+
+    /* Tabs styling */
+    .tabs-container {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--card-border);
+        width: 100%;
+        max-width: 1200px;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .tab-btn:hover {
+        color: var(--accent);
+    }
+
+    .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+
+    .tab-content {
+        display: none;
+        width: 100%;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+    
+    .badge-tab {
+        background: var(--error);
+        color: white;
+        border-radius: 50%;
+        padding: 0.15rem 0.45rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        position: absolute;
+        top: 2px;
+        right: -8px;
+    }
+
+    /* Crisis table & layout styling */
+    .alerts-table-container {
+        overflow-x: auto;
+        width: 100%;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+    }
+
+    .alerts-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    .alerts-table th, .alerts-table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 0.9rem;
+    }
+
+    .alerts-table th {
+        font-family: 'Outfit', sans-serif;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+    }
+
+    .alerts-table tr:hover {
+        background: rgba(255, 255, 255, 0.01);
+    }
+
+    .snippet-box {
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 3px solid var(--error);
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        max-width: 400px;
+        white-space: pre-wrap;
+    }
+
+    /* Chatbot in tab styling */
+    .chat-container-therapist {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .chat-box {
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        height: 350px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .chat-message {
+        max-width: 80%;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .message-user {
+        background: rgba(34, 211, 238, 0.15);
+        color: var(--accent);
+        align-self: flex-end;
+        border-bottom-right-radius: 2px;
+    }
+
+    .message-ai {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+        align-self: flex-start;
+        border-bottom-left-radius: 2px;
+    }
+
+    .chat-input-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .chat-input-row input {
+        flex: 1;
+    }
+
+    .btn-send {
+        background: var(--accent);
+        border: none;
+        color: #0a0518;
+        padding: 0 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .btn-send:hover {
+        background: white;
+        box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title" style="text-align: left; width: 100%; max-width: 1200px;">Therapist Workspace</h1>
+<p class="page-subtitle" style="text-align: left; width: 100%; max-width: 1200px; margin-top: -1.25rem; margin-bottom: 1.5rem;">
+    Review upcoming patient requests, track crisis alerts, and consult with the MindWell AI helper.
+</p>
+
+<!-- Tabs Navigation -->
+<div class="tabs-container">
+    <button id="tab-btn-workspace" class="tab-btn active" onclick="switchTab('workspace')">Clinical Workspace</button>
+    <button id="tab-btn-crisis" class="tab-btn" onclick="switchTab('crisis')">
+        Crisis Alerts
+        <span id="crisis-badge" class="badge-tab" style="display: none;">0</span>
+    </button>
+    <button id="tab-btn-chat" class="tab-btn" onclick="switchTab('chat')">MindWell Support Chat</button>
+</div>
+
+<!-- Tab Content: Clinical Workspace -->
+<div id="tab-content-workspace" class="tab-content active">
+    <div class="dashboard-grid">
+        <!-- Left Column: Appointments List -->
+        <div class="widget">
+            <h2 class="widget-title">Assigned Sessions</h2>
+            <ul class="session-list" id="session-list">
+                <li class="loading-spinner">Loading appointments...</li>
+            </ul>
+        </div>
+
+        <!-- Right Column: Clinical Notes Workspace -->
+        <div class="widget" id="notes-workspace">
+            <h2 class="widget-title">Clinical Notes Workspace</h2>
+            <div id="no-selection-msg" style="text-align: center; color: var(--text-muted); padding: 4rem 1rem;">
+                <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">No Appointment Selected</p>
+                <p style="font-size: 0.9rem;">Select an appointment from the left sidebar to start compiling session records and summaries.</p>
+            </div>
+            
+            <div id="workspace-content" style="display: none; flex-direction: column; gap: 1.25rem;">
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                    <h3 id="patient-title" style="font-family:'Outfit'; font-size:1.25rem; font-weight:700;">Patient: John Doe</h3>
+                    <p id="patient-details" style="color:var(--text-secondary); font-size:0.85rem; margin-top:0.25rem;">Session: YYYY-MM-DD at HH:MM</p>
+                    <p id="patient-reason" style="font-size:0.9rem; margin-top:0.5rem; border-top:1px dashed var(--card-border); padding-top:0.5rem;"></p>
+                    <div id="session-actions-wrapper" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn-action" id="btn-confirm-session" style="display: none;" onclick="confirmSession()">Confirm Session</button>
+                        <button class="btn-action" id="btn-complete-session" style="display: none; background: var(--success); color: white;" onclick="completeSession()">Mark Session Completed (Done)</button>
+                        <button class="btn-outline" id="btn-cancel-session" style="display: none; border-color: var(--error); color: var(--error);" onclick="cancelSessionTherapist()">Cancel Session</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="private-note">Private Clinical Note</label>
+                    <textarea id="private-note" rows="5" placeholder="Record raw diagnostic notes and session logs here. These are private to you."></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-start; gap: 1rem; align-items: center;">
+                    <button class="btn-action" onclick="generateAISummary()">Generate AI Summary</button>
+                    <span id="ai-status" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="shared-summary">Shared Patient Summary</label>
+                    <textarea id="shared-summary" rows="3" placeholder="Provide general feedback and advice that the patient can review in their dashboard."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="ai-summary">AI Summary Log (Generated)</label>
+                    <textarea id="ai-summary" rows="3" placeholder="Click 'Generate AI Summary' to populate clinical observations from your private note using Claude AI."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button class="btn-submit" onclick="saveSessionNotes()" style="flex:1; margin:0; padding:0.85rem;">Save Session Records</button>
+                    <button class="btn-outline" onclick="closeWorkspace()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Content: Crisis Alerts -->
+<div id="tab-content-crisis" class="tab-content">
+    <div class="alerts-table-container">
+        <h2 class="widget-title" style="margin-bottom: 1rem; border: none; padding: 0;">Crisis Detection Log</h2>
+        <table class="alerts-table">
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>Detected Keyword</th>
+                    <th>Snippet Preview</th>
+                    <th>Logged At</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="crisis-logs-table-body">
+                <tr>
+                    <td colspan="6" class="loading-spinner">Loading crisis logs...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab Content: MindWell Support Chat -->
+<div id="tab-content-chat" class="tab-content">
+    <div class="widget chat-container-therapist">
+        <h2 class="widget-title">MindWell Support Chat <span>AI Triage Helper</span></h2>
+        <div class="chat-box" id="chat-box">
+            <div class="chat-message message-ai">
+                Hello! I am MindWell, your AI companion. You can chat with me here to test my triage capabilities or ask clinical-support general questions.
+            </div>
+        </div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type a message to MindWell..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+            <button class="btn-send" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const csrfToken = '{{ csrf_token }}';
+    let currentAppointmentId = null;
+    let chatHistory = [];
+
+    // Load on start
+    window.addEventListener('DOMContentLoaded', () => {
+        loadAppointments();
+        loadCrisisLogs();
+        // Periodically check for new crisis alerts
+        setInterval(loadCrisisLogs, 15000);
+    });
+
+    // Tab Navigation Logic
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        if (tabName === 'workspace') {
+            document.getElementById('tab-btn-workspace').classList.add('active');
+            document.getElementById('tab-content-workspace').classList.add('active');
+        } else if (tabName === 'crisis') {
+            document.getElementById('tab-btn-crisis').classList.add('active');
+            document.getElementById('tab-content-crisis').classList.add('active');
+            loadCrisisLogs();
+        } else if (tabName === 'chat') {
+            document.getElementById('tab-btn-chat').classList.add('active');
+            document.getElementById('tab-content-chat').classList.add('active');
+        }
+    }
+
+    // Fetch Appointments list
+    function loadAppointments() {
+        fetch('/appointments/')
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById('session-list');
+            list.innerHTML = '';
+            if (!data.appointments || data.appointments.length === 0) {
+                list.innerHTML = '<li class="loading-spinner">No appointments assigned.</li>';
+                return;
+            }
+
+            data.appointments.forEach(a => {
+                const li = document.createElement('li');
+                li.className = 'session-card';
+                li.id = `session-card-${a.id}`;
+                if (currentAppointmentId === a.id) {
+                    li.classList.add('active');
+                }
+                
+                let badgeClass = 'badge-info';
+                if (a.status === 'confirmed') badgeClass = 'badge-success';
+                if (a.status === 'cancelled') badgeClass = 'badge-danger';
+                if (a.status === 'completed') badgeClass = 'badge-primary';
+
+                li.onclick = () => selectAppointment(a);
+                
+                li.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-weight:600;">
+                        <span>Patient: ${a.patient}</span>
+                        <span class="badge ${badgeClass}">${a.status.toUpperCase()}</span>
+                    </div>
+                    <div style="color:var(--text-secondary); font-size:0.8rem; margin-top:0.25rem;">
+                        Date: ${a.date} at ${a.time}
+                    </div>
+                    <div style="color:var(--text-muted); font-size:0.75rem; margin-top:0.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        Reason: ${a.reason || 'None specified'}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Select Appointment & Populate Workspace
+    function selectAppointment(app) {
+        currentAppointmentId = app.id;
+        
+        // Highlight active card
+        document.querySelectorAll('.session-card').forEach(card => card.classList.remove('active'));
+        const selectedCard = document.getElementById(`session-card-${app.id}`);
+        if (selectedCard) {
+            selectedCard.classList.add('active');
+        }
+
+        // Hide default panel & show workspace
+        document.getElementById('no-selection-msg').style.display = 'none';
+        document.getElementById('workspace-content').style.display = 'flex';
+
+        // Load details
+        document.getElementById('patient-title').innerText = `Patient: ${app.patient}`;
+        document.getElementById('patient-details').innerText = `Session: ${app.date} at ${app.time} (ID: ${app.id})`;
+        document.getElementById('patient-reason').innerHTML = `<strong>Session Reason:</strong> ${app.reason || 'None specified'}`;
+
+        // Show/hide action buttons based on status
+        const btnConfirm = document.getElementById('btn-confirm-session');
+        const btnComplete = document.getElementById('btn-complete-session');
+        const btnCancel = document.getElementById('btn-cancel-session');
+
+        btnConfirm.style.display = 'none';
+        btnComplete.style.display = 'none';
+        btnCancel.style.display = 'none';
+
+        if (app.status === 'pending') {
+            btnConfirm.style.display = 'inline-block';
+            btnCancel.style.display = 'inline-block';
+        } else if (app.status === 'confirmed') {
+            btnComplete.style.display = 'inline-block';
+            btnCancel.style.display = 'inline-block';
+        }
+
+        // Reset inputs
+        document.getElementById('private-note').value = '';
+        document.getElementById('shared-summary').value = '';
+        document.getElementById('ai-summary').value = '';
+        document.getElementById('ai-status').innerText = '';
+
+        // Load existing notes from server
+        fetch(`/appointments/notes/${app.id}/`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.error) {
+                document.getElementById('private-note').value = data.private_note || '';
+                document.getElementById('shared-summary').value = data.shared_summary || '';
+                document.getElementById('ai-summary').value = data.ai_summary || '';
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Generate AI Summary using Claude Service
+    function generateAISummary() {
+        const privateNote = document.getElementById('private-note').value.trim();
+        if (!privateNote) {
+            alert('Please write clinical notes in the Private Note field first.');
+            return;
+        }
+
+        const statusLabel = document.getElementById('ai-status');
+        statusLabel.innerText = 'Claude is summarizing...';
+        statusLabel.style.color = 'var(--accent)';
+
+        fetch('/api/summarise/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                note_text: privateNote
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.summary) {
+                document.getElementById('ai-summary').value = data.summary;
+                statusLabel.innerText = 'Summary generated successfully!';
+                statusLabel.style.color = 'var(--success)';
+            } else {
+                statusLabel.innerText = 'AI service check failed.';
+                statusLabel.style.color = 'var(--error)';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            statusLabel.innerText = 'Connection error.';
+            statusLabel.style.color = 'var(--error)';
+        });
+    }
+
+    // Save notes to server
+    function saveSessionNotes() {
+        if (!currentAppointmentId) return;
+
+        const privateNote = document.getElementById('private-note').value;
+        const sharedSummary = document.getElementById('shared-summary').value;
+        const aiSummary = document.getElementById('ai-summary').value;
+
+        fetch(`/appointments/notes/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                private_note: privateNote,
+                shared_summary: sharedSummary,
+                ai_summary: aiSummary
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session records saved successfully!');
+            } else {
+                alert('Error saving records: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Close Workspace
+    function closeWorkspace() {
+        currentAppointmentId = null;
+        document.querySelectorAll('.session-card').forEach(card => card.classList.remove('active'));
+        document.getElementById('no-selection-msg').style.display = 'block';
+        document.getElementById('workspace-content').style.display = 'none';
+    }
+
+    // Confirm Appointment
+    function confirmSession() {
+        if (!currentAppointmentId) return;
+        fetch(`/appointments/confirm/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session confirmed successfully!');
+                refreshSessionList(currentAppointmentId);
+            } else {
+                alert('Error confirming session: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Complete Appointment
+    function completeSession() {
+        if (!currentAppointmentId) return;
+        fetch(`/appointments/complete/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session marked completed!');
+                refreshSessionList(currentAppointmentId);
+            } else {
+                alert('Error completing session: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Cancel Appointment (Therapist Workspace Control)
+    function cancelSessionTherapist() {
+        if (!currentAppointmentId) return;
+        if (!confirm('Are you sure you want to cancel this appointment?')) return;
+        
+        fetch(`/appointments/cancel/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session cancelled.');
+                refreshSessionList(currentAppointmentId);
+            } else {
+                alert('Error cancelling session: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Refresh Sidebar Appointments List and selection details
+    function refreshSessionList(selectedId) {
+        fetch('/appointments/')
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById('session-list');
+            list.innerHTML = '';
+            if (!data.appointments || data.appointments.length === 0) {
+                list.innerHTML = '<li class="loading-spinner">No appointments assigned.</li>';
+                return;
+            }
+
+            data.appointments.forEach(a => {
+                const li = document.createElement('li');
+                li.className = 'session-card';
+                li.id = `session-card-${a.id}`;
+                if (selectedId === a.id) {
+                    li.classList.add('active');
+                }
+                
+                let badgeClass = 'badge-info';
+                if (a.status === 'confirmed') badgeClass = 'badge-success';
+                if (a.status === 'cancelled') badgeClass = 'badge-danger';
+                if (a.status === 'completed') badgeClass = 'badge-primary';
+
+                li.onclick = () => selectAppointment(a);
+                
+                li.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-weight:600;">
+                        <span>Patient: ${a.patient}</span>
+                        <span class="badge ${badgeClass}">${a.status.toUpperCase()}</span>
+                    </div>
+                    <div style="color:var(--text-secondary); font-size:0.8rem; margin-top:0.25rem;">
+                        Date: ${a.date} at ${a.time}
+                    </div>
+                    <div style="color:var(--text-muted); font-size:0.75rem; margin-top:0.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        Reason: ${a.reason || 'None specified'}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+
+            const updatedApp = data.appointments.find(a => a.id === selectedId);
+            if (updatedApp) {
+                selectAppointment(updatedApp);
+            } else {
+                closeWorkspace();
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Load Crisis Detection Logs
+    function loadCrisisLogs() {
+        fetch('/api/crisis-logs/')
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.getElementById('crisis-logs-table-body');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            const logs = data.crisis_logs || [];
+
+            // Calculate unreviewed count for badge
+            const unreviewedCount = logs.filter(l => !l.reviewed).length;
+            const badge = document.getElementById('crisis-badge');
+            if (unreviewedCount > 0) {
+                badge.innerText = unreviewedCount;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No crisis alerts logged. Systems normal.</td></tr>';
+                return;
+            }
+
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                const date = new Date(log.timestamp).toLocaleString();
+                
+                const statusBadge = log.reviewed 
+                    ? '<span class="badge badge-success">REVIEWED</span>' 
+                    : '<span class="badge badge-danger">PENDING</span>';
+
+                const actionButton = log.reviewed 
+                    ? '<span style="color: var(--success); font-size: 1.25rem; font-weight: bold;">✓</span>' 
+                    : `<button class="btn-action" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="reviewCrisisLog(${log.id})">Mark Reviewed</button>`;
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${log.username}</td>
+                    <td><span class="badge badge-danger" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">${log.detected_keyword}</span></td>
+                    <td><div class="snippet-box">${escapeHtml(log.text_snippet)}</div></td>
+                    <td style="color: var(--text-secondary); font-size: 0.8rem;">${date}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actionButton}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => console.error(err));
+    }
+
+    function reviewCrisisLog(logId) {
+        fetch('/api/crisis-logs/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ log_id: logId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                loadCrisisLogs();
+            } else {
+                alert('Error reviewing log: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Send AI Chat Message
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Add user bubble
+        appendChatBubble(message, 'user');
+        input.value = '';
+
+        // Call API
+        fetch('/api/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                message: message,
+                history: chatHistory
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.response) {
+                appendChatBubble(data.response, 'ai');
+                // Store in local chat history
+                chatHistory.push(message);
+                chatHistory.push(data.response);
+            } else {
+                appendChatBubble('Sorry, I encountered an error checking your request.', 'ai');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            appendChatBubble('Unable to connect to the AI service. Please try again.', 'ai');
+        });
+    }
+
+    function appendChatBubble(text, sender) {
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = `chat-message message-${sender}`;
+        div.innerText = text;
+        box.appendChild(div);
+        // Scroll to bottom
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function confirmSession() {
+        if (!currentAppointmentId) return;
+        if (!confirm('Confirm this session scheduling request?')) return;
+        
+        fetch(`/appointments/confirm/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session confirmed successfully!');
+                loadAppointments();
+                closeWorkspace();
+            } else {
+                alert('Error confirming: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function completeSession() {
+        if (!currentAppointmentId) return;
+        if (!confirm('Mark this session as successfully completed?')) return;
+        
+        fetch(`/appointments/complete/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session marked completed!');
+                loadAppointments();
+                closeWorkspace();
+            } else {
+                alert('Error completing: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function cancelSessionTherapist() {
+        if (!currentAppointmentId) return;
+        if (!confirm('Are you sure you want to cancel this session?')) return;
+        
+        fetch(`/appointments/cancel/${currentAppointmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session cancelled.');
+                loadAppointments();
+                closeWorkspace();
+            } else {
+                alert('Error cancelling: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => console.error(err));
+    }
+</script>
+{% endblock %}
